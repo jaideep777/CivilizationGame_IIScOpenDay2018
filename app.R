@@ -18,13 +18,36 @@ ui <- fluidPage(
   titlePanel("Sustainability Game"),
   sidebarLayout(
     sidebarPanel(
-      textInput("cmd_pol", "Enter Command (P/F/G ...):", value = ""),
+      tags$pre(
+"The game is played by entering commands at each turn:
+Politicians' commands:
+  P x  <--- x = do nothing
+  P a <X> <Y> xx <--- take xx% of total area from X and add it to Y
+    X/Y : F = forest, f = farm, c = city, i = industry
+Farmers' commands:
+  F f xx <---- set fulfilment to xx % (fraction of food requirement farmer keeps)
+  F p xx <---- set fertilizer usage to xx (kg/yr/hct)
+  F m xx <---- xx % of farmers migrate to city (negative means xx % migrate from city)"
+      ),
+      textInput("cmd_pol", "Enter Command:", value = ""),
       actionButton("submit_cmd", "Submit Command"),
       verbatimTextOutput("turn_info"),
       width = 3
     ),
     mainPanel(
-      plotOutput("game_plot", height = "800px"),
+      fluidRow(
+        column(12, plotOutput("plot_world_area", height = "250px")),
+      ),
+      fluidRow(
+        column(4, plotOutput("plot_population", height = "250px")),
+        column(4, plotOutput("plot_food_market", height = "250px")),
+        column(4, plotOutput("plot_food_price", height = "250px"))
+      ),
+      fluidRow(
+        column(4, plotOutput("plot_income", height = "250px")),
+        column(4, plotOutput("plot_nutrition", height = "250px")),
+        column(4, plotOutput("plot_happiness", height = "250px"))
+      ),
       width = 9
     )
   )
@@ -76,11 +99,53 @@ server <- function(input, output, session) {
     print(vals$state)
   })
 
-  output$game_plot <- renderPlot({
+  output$plot_world_area <- renderPlot({
     d <- vals$dat
     t <- vals$turn
     if (nrow(d) < 2) return()
-    plot_state(d[1:max(2, t),])
+    plot_world_area(d[t,])
+  })
+
+  output$plot_population <- renderPlot({
+    d <- vals$dat
+    t <- vals$turn
+    if (nrow(d) < 2) return()
+    plot_population(d[t,], d[t-1,])
+  })
+
+  output$plot_food_market <- renderPlot({
+    d <- vals$dat
+    t <- vals$turn
+    if (nrow(d) < 2) return()
+    plot_food_market(d[t,], d[t-1,])
+  })
+
+  output$plot_food_price <- renderPlot({
+    d <- vals$dat
+    t <- vals$turn
+    if (nrow(d) < 2) return()
+    plot_food_price(d[t,], d[t-1,])
+  })
+
+  output$plot_income <- renderPlot({
+    d <- vals$dat
+    t <- vals$turn
+    if (nrow(d) < 2) return()
+    plot_income(d[t,], d[t-1,])
+  })
+
+  output$plot_nutrition <- renderPlot({
+    d <- vals$dat
+    t <- vals$turn
+    if (nrow(d) < 2) return()
+    plot_nutrition(d[t,], d[t-1,])
+  })
+
+  output$plot_happiness <- renderPlot({
+    d <- vals$dat
+    t <- vals$turn
+    if (nrow(d) < 2) return()
+    plot_happiness(d[t,], d[t-1,])
   })
 }
 

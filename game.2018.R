@@ -51,7 +51,7 @@ K.fert_effectiveness = 1/15 # Effectiveness of fertilizer (yield increase per kg
 #-------------------------------------------------------------------------------------
 # PLOTTING FUNCTION FOR SUPPLY-DEMAND CURVES
 #-------------------------------------------------------------------------------------
-plot_supply_demand = function(){
+plot_supply_demand = function(supply.food_max, demand.food_0, price.food){
   # Plots the supply and demand curves for food, showing equilibrium
   x = seq(1,200,0.1)
   plot(y=supply.food_max*(1-exp(-x/K.supply_elast))/1000,
@@ -110,7 +110,7 @@ process_command = function(cmd_pol, state){
     else if (agent == "G"){
       if (command == "sd"){
         # Plot supply-demand curves
-        plot_supply_demand()
+        # plot_supply_demand()
       }
       else if (command == "exit"){
         # End game
@@ -220,96 +220,108 @@ update_state = function(state){
 #-------------------------------------------------------------------------------------
 # PLOTTING SECTION: VISUALIZE GAME STATE
 #-------------------------------------------------------------------------------------
+plotArrow = function(x,y,value){
+  if (value < 0){
+    pch1 = -9660 # Unicode down arrow
+    col1 = "red"
+  }
+  else {
+    pch1 = -9650 # Unicode up arrow
+    col1 = "green4"
+  }
+  cex = 1+abs(value)/70 # Arrow size proportional to magnitude of change
+  if (value != 0) points(x=x,y=y, pch=pch1, col=col1, cex=cex)
+}
 
-plot_state = function(dat){  
-  # Layout for multiple plots in one window
-  layout(rbind(c(1,1,2,3),c(4,5,6,7)))
-  par(cex.lab=1.2, cex=1.2)
-
-  tt = dat[nrow(dat),] # Last row of data for current state
-  tm = dat[nrow(dat)-1,] # Second Last row of data for previous state
-
-  #--- Plot 1: World Area Map ---
+plot_world_area = function(tt) {
   world = matrix(
-    data = rep(c(1,2,3,4), c(round(tt$A.forest), round(tt$A.farm), round(tt$A.city), round(tt$A.ind))), 
-    nrow=30, 
+    data = rep(c(1,2,3,4), c(round(tt$A.forest), round(tt$A.farm), round(tt$A.city), round(tt$A.ind))),
+    nrow=30,
     byrow = F
   )
   b = (which(diff(c(-1,world[1,],10)) > 0))-1
   image(
-    t(world), xaxt="n", yaxt="n", main="World Area", 
+    t(world), xaxt="n", yaxt="n", main="World Area",
     col=c("green4","lightgreen", "grey", "red")
   )
   axis(
-    side = 1, at = (b[-length(b)]+diff(b)/2)/30, 
+    side = 1, at = (b[-length(b)]+diff(b)/2)/30,
     labels = c("Forest", "Farm", "City", "Ind")
   )
-  
-  plotArrow = function(x,y,value){
-    if (value < 0){
-      pch1 = -9660 # Unicode down arrow
-      col1 = "red"
-    }
-    else {
-      pch1 = -9650 # Unicode up arrow
-      col1 = "green4"
-    }
-    cex = 1+abs(value)/70 # Arrow size proportional to magnitude of change
-    if (value != 0) points(x=x,y=y, pch=pch1, col=col1, cex=cex)
-  }
+}
 
-  #--- Plot 2: Population Barplot ---
+plot_population = function(tt, tm) {
   barplot(c(tt$N.city, tt$N.farmers), main="Population", names.arg = c("city", "farm"), ylim=c(0,3000))
   citypopchange = (tt$N.city - tm$N.city) / tm$N.city * 100
   farmerpopchange = (tt$N.farmers - tm$N.farmers) / tm$N.farmers * 100
   plotArrow(x=0.7,y=2800, citypopchange)
   plotArrow(x=1.9,y=2800, farmerpopchange)
-  
-  #--- Plot 3: Food Production (Supply vs Demand) ---
+}
+
+plot_food_market = function(tt, tm) {
   barplot(
-    rbind(c(tt$sold.food, tt$sold.food), c(tt$demand.food_0-tt$sold.food, tt$supply.food_max-tt$sold.food))/1000, 
+    rbind(c(tt$sold.food, tt$sold.food), c(tt$demand.food_0-tt$sold.food, tt$supply.food_max-tt$sold.food))/1000,
     main="Food market", names.arg = c("demand", "supply"), ylab = "Quantity (tons)", ylim=c(0,150)
   )
   sold.food.change = (tt$sold.food - tm$sold.food) / tm$sold.food * 100
   plotArrow(x=0.7,y=148, sold.food.change)
   plotArrow(x=1.9,y=148, sold.food.change)
+}
 
-  #--- Plot 4: Food Price ---
-  barplot(tt$price.food, main="Food\nPrice", ylim=c(0,150), names.arg = "")
+plot_food_price = function(tt, tm) {
+  barplot(tt$price.food, main="Food Price", ylim=c(0,150), names.arg = "")
   price_change = (tt$price.food - tm$price.food) / tm$price.food * 100
   plotArrow(x=0.7,y=95,price_change)
-  
-  #--- Plot 5: Income (City vs Farmer) ---
+}
+
+plot_income = function(tt, tm) {
   barplot(
-    rbind(c(tt$inc.city, tt$inc.farmer), c(tt$revenue.city-tt$inc.city, tt$revenue.farmer-tt$inc.farmer)), 
+    rbind(c(tt$inc.city, tt$inc.farmer), c(tt$revenue.city-tt$inc.city, tt$revenue.farmer-tt$inc.farmer)),
     main="Income", names.arg = c("city", "farm"), ylim=c(0,10000)
   )
   inc_citychange = (tt$inc.city - tm$inc.city) / tm$inc.city * 100
   inc_farmchange = (tt$inc.farmer - tm$inc.farmer) / tm$inc.farmer * 100
   plotArrow(x=0.7,y=9000,inc_citychange)
   plotArrow(x=1.9,y=9000,inc_farmchange)
+}
 
-  #--- Plot 6: Nutrition (Satiety) ---
+plot_nutrition = function(tt, tm) {
   barplot(
-    rbind(c(tt$satiety.city, tt$satiety.farmer)), 
+    rbind(c(tt$satiety.city, tt$satiety.farmer)),
     main="Nutrition", names.arg = c("city", "farm"), ylim = c(0,1), border=F
   )
   satiety_citychange = (tt$satiety.city - tm$satiety.city) / tm$satiety.city * 100
   satiety_farmerchange = (tt$satiety.farmer - tm$satiety.farmer) / tm$satiety.farmer * 100
   plotArrow(x=0.7,y=0.95,satiety_citychange)
   plotArrow(x=1.9,y=0.95,satiety_farmerchange)
-  
-  #--- Plot 7: Happiness (HDI and Political Popularity) ---
+}
+
+plot_happiness = function(tt, tm) {
   barplot(
-    rbind(c(tt$hdi.city, tt$hdi.farmer, tt$polit.popularity)), 
-    main="Happiness", names.arg = c("city", "farm", "polit"), ylim=c(0,1)
+    rbind(c(tt$hdi.city, 
+            tt$hdi.farmer
+            # tt$polit.popularity
+            )),
+    main="Happiness", names.arg = c("city", "farm"), ylim=c(0,1)
   )
   hdi_citychange = (tt$hdi.city - tm$hdi.city) / tm$hdi.city * 100
   hdi_farmerchange = (tt$hdi.farmer - tm$hdi.farmer) / tm$hdi.farmer * 100
-  polit_change = (tt$polit.popularity - tm$polit.popularity) / tm$polit.popularity * 100
-  
+  # polit_change = (tt$polit.popularity - tm$polit.popularity) / tm$polit.popularity * 100
   plotArrow(x=0.7,y=0.95,hdi_citychange)
   plotArrow(x=1.9,y=0.95,hdi_farmerchange)
-  plotArrow(x=3.1,y=0.95,polit_change)
+  # plotArrow(x=3.1,y=0.95,polit_change)
+}
+
+# For backward compatibility, plot_state can dispatch to the above
+plot_state = function(dat, which = "world_area") {
+  tt = dat[nrow(dat),]
+  tm = dat[nrow(dat)-1,]
+  if (which == "world_area") return(plot_world_area(tt))
+  if (which == "population") return(plot_population(tt, tm))
+  if (which == "food_market") return(plot_food_market(tt, tm))
+  if (which == "food_price") return(plot_food_price(tt, tm))
+  if (which == "income") return(plot_income(tt, tm))
+  if (which == "nutrition") return(plot_nutrition(tt, tm))
+  if (which == "happiness") return(plot_happiness(tt, tm))
 }
 
