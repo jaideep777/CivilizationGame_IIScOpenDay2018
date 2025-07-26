@@ -6,12 +6,20 @@ library(shiny)
 
 # UI
 ui <- fluidPage(
-  titlePanel("Civilization Game (IISc Open Day 2018)"),
+  tags$head(
+    tags$script(HTML("
+      $(document).on('keydown', function(e) {
+        if (e.key === 'Enter' && $('#cmd_pol').is(':focus')) {
+          $('#submit_cmd').click();
+        }
+      });
+    "))
+  ),
+  titlePanel("Sustainability Game"),
   sidebarLayout(
     sidebarPanel(
       textInput("cmd_pol", "Enter Command (P/F/G ...):", value = ""),
       actionButton("submit_cmd", "Submit Command"),
-      actionButton("next_turn", "Next Turn"),
       verbatimTextOutput("turn_info"),
       width = 3
     ),
@@ -26,7 +34,6 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   Ts <- 500
 
-  # Use reactiveValues for state and dat to allow mutation outside reactive context
   vals <- reactiveValues(
     state = state,
     dat = {
@@ -48,10 +55,6 @@ server <- function(input, output, session) {
   observeEvent(input$submit_cmd, {
     req(input$cmd_pol)
     vals$state <- process_command(input$cmd_pol, vals$state)
-    # Do not advance turn here, just update state
-  })
-
-  observeEvent(input$next_turn, {
     t <- vals$turn + 1
     if (t > Ts) return()
     l <- update_state(vals$state)
@@ -64,6 +67,7 @@ server <- function(input, output, session) {
     vals$dat <- d
     vals$state <- l$state
     vals$turn <- t
+    updateTextInput(session, "cmd_pol", value = "")
   })
 
   output$turn_info <- renderPrint({

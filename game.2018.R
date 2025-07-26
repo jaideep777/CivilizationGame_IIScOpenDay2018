@@ -108,7 +108,7 @@ process_command = function(cmd_pol, state){
     }
     # Game manager commands
     else if (agent == "G"){
-      if (command == "supply_demand"){
+      if (command == "sd"){
         # Plot supply-demand curves
         plot_supply_demand()
       }
@@ -126,6 +126,7 @@ process_command = function(cmd_pol, state){
   state
 }
 
+
 update_state = function(state){
   # Calculate actual areas for each land type
   A.forest = state$world.areas[1]*A.tot
@@ -139,13 +140,13 @@ update_state = function(state){
   #------------------- DROUGHT DYNAMICS -------------------
   # Probability of drought is a function of forest area (less forest = higher drought risk)
   # Uses a sigmoid for smooth transition, with a sharp increase below 15% forest
-  p.drought = 0.4*sigmoid(A.forest/A.tot - 0.15, -20)  
+  p.drought = 0.4*sigmoid(A.forest/A.tot - 0.15, -5)  
   b.drought = rbinom(n = 1, size=1, prob=p.drought) # Simulate drought event (1 = drought, 0 = no drought)
   # TODO: introduce lagged effect of forest area on drought
 
   #------------------- FARM SECTOR DYNAMICS -------------------
   # Farm yield increases with fertilizer usage, saturating at high usage
-  yield.farm = K.farm_yield_0*2*(1-exp(-state$fert.usage*K.fert_effectiveness))  
+  yield.farm = K.farm_yield_0*2*(1-exp(-state$fert.usage*K.fert_effectiveness)) * (1-0.2*b.drought) # Reduce yield by 20% during drought
   # Farmer's own food consumption (can be less than requirement if fulfilment < 1)
   cons.food_pc_farmer = K.food_cons_pc* state$farmer.fulfillment 
   # Total farm produce (kg)
@@ -191,8 +192,8 @@ update_state = function(state){
   crowding.city = A.city/state$N.city 
   # Satiety: fraction of food requirement met
   satiety.city = cons.food_pc/K.food_cons_pc
-  # City HDI: function of satiety, income, and crowding
-  hdi.city =  sigmoid(satiety.city-0.2, 5) * sigmoid(inc.city-3000, .001) * sigmoid(crowding.city-0.05,20)   
+  # City HDI: function of satiety, income, crowding, and health
+  hdi.city =  sigmoid(satiety.city-0.2, 5) * sigmoid(inc.city-3000, .001) * sigmoid(crowding.city-0.05,20) * 2*sigmoid(health.city-2,1)  
   
   #------------------- POLITICAL SECTOR DYNAMICS -------------------
   # Tax collection: 20% of city income, 5% of farmer income
@@ -267,26 +268,26 @@ plot_state = function(dat){
   #--- Plot 3: Food Production (Supply vs Demand) ---
   barplot(
     rbind(c(tt$sold.food, tt$sold.food), c(tt$demand.food_0-tt$sold.food, tt$supply.food_max-tt$sold.food))/1000, 
-    main="Food Production", names.arg = c("demand", "supply"), ylab = "Quantity (tons)", ylim=c(0,150)
+    main="Food market", names.arg = c("demand", "supply"), ylab = "Quantity (tons)", ylim=c(0,150)
   )
   sold.food.change = (tt$sold.food - tm$sold.food) / tm$sold.food * 100
   plotArrow(x=0.7,y=148, sold.food.change)
   plotArrow(x=1.9,y=148, sold.food.change)
 
   #--- Plot 4: Food Price ---
-  barplot(tt$price.food, main="Food\nPrice", ylim=c(0,100), names.arg = "")
+  barplot(tt$price.food, main="Food\nPrice", ylim=c(0,150), names.arg = "")
   price_change = (tt$price.food - tm$price.food) / tm$price.food * 100
   plotArrow(x=0.7,y=95,price_change)
   
   #--- Plot 5: Income (City vs Farmer) ---
   barplot(
     rbind(c(tt$inc.city, tt$inc.farmer), c(tt$revenue.city-tt$inc.city, tt$revenue.farmer-tt$inc.farmer)), 
-    main="Income", names.arg = c("city", "farm"), ylim=c(0,8000)
+    main="Income", names.arg = c("city", "farm"), ylim=c(0,10000)
   )
   inc_citychange = (tt$inc.city - tm$inc.city) / tm$inc.city * 100
   inc_farmchange = (tt$inc.farmer - tm$inc.farmer) / tm$inc.farmer * 100
-  plotArrow(x=0.7,y=7000,inc_citychange)
-  plotArrow(x=1.9,y=7000,inc_farmchange)
+  plotArrow(x=0.7,y=9000,inc_citychange)
+  plotArrow(x=1.9,y=9000,inc_farmchange)
 
   #--- Plot 6: Nutrition (Satiety) ---
   barplot(
