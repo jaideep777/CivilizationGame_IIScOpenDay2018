@@ -83,7 +83,7 @@ process_command = function(cmd_pol, state){
         # Area reallocation: e.g., "P a F i 20" moves 20% of total area from Forest to Industry
         from = cmd_vec[3]     # Source area type
         to = cmd_vec[4]       # Destination area type
-        amt = min(as.numeric(cmd_vec[5])/100*sum(state$world.areas), state$world.areas[from]) # Amount to move (cannot exceed available)
+        amt = min(as.numeric(cmd_vec[5])/100*sum(state$world.areas), state$world.areas[from]-0.04) # Amount to move (cannot exceed available)
         state$world.areas[from] <- state$world.areas[from] - amt
         state$world.areas[to]   <- state$world.areas[to]   + amt
       }
@@ -93,7 +93,7 @@ process_command = function(cmd_pol, state){
     else if (agent == "F"){
       if (command == "f"){    
         # Set farmer's own food fulfilment (fraction of requirement kept)
-        state$farmer.fulfillment <- as.numeric(cmd_vec[3])
+        state$farmer.fulfillment <- max(min(as.numeric(cmd_vec[3]), 1), 0.01)
       }
       if (command == "p"){    
         # Set fertilizer usage (kg/yr/hct)
@@ -101,9 +101,23 @@ process_command = function(cmd_pol, state){
       }
       if (command == "m"){    
         # Farmer migration: xx% of farmers migrate to city (negative = migrate from city to farm)
-        migrants = round(state$N.farmers*as.numeric(cmd_vec[3])/100)
-        state$N.farmers <- state$N.farmers - migrants
-        state$N.city    <- state$N.city    + migrants
+        percent_migrants = abs(as.numeric(cmd_vec[3]))
+        dir_migration = sign(as.numeric(cmd_vec[3]))
+        percent_migrants = max(min(percent_migrants, 99), 1)
+
+        if (dir_migration > 0){
+          # migration from farm
+          migrants = round(state$N.farmers*percent_migrants/100)
+          if (migrants >= state$N.farmers) migrants = migrants - 15 # ensure at least 5 individuals remain
+          state$N.farmers <- state$N.farmers - migrants
+          state$N.city    <- state$N.city    + migrants
+        } else {
+          # Migration from city
+          migrants = round(state$N.city*percent_migrants/100)
+          if (migrants >= state$N.city) migrants = migrants - 15 # ensure at least 5 individuals remain
+          state$N.farmers <- state$N.farmers + migrants
+          state$N.city    <- state$N.city    - migrants
+        }
       }
     }
     # Game manager commands
@@ -221,16 +235,19 @@ update_state = function(state){
 # PLOTTING SECTION: VISUALIZE GAME STATE
 #-------------------------------------------------------------------------------------
 plotArrow = function(x,y,value){
+  if (is.na(value)) return()
   if (value < 0){
     pch1 = -9660 # Unicode down arrow
-    col1 = "red"
+    col1 = scales::alpha("red", 0.8)
   }
   else {
     pch1 = -9650 # Unicode up arrow
-    col1 = "green4"
+    col1 = scales::alpha("green4", 0.8)
   }
-  cex = 1+abs(value)/70 # Arrow size proportional to magnitude of change
-  if (value != 0) points(x=x,y=y, pch=pch1, col=col1, cex=cex)
+  mag = min(abs(value), 300)
+  # cat(value, "\n")
+  cex = 1+mag/70 # Arrow size proportional to magnitude of change
+  if (value != 0 && !is.infinite(value)) points(x=x,y=y, pch=pch1, col=col1, cex=cex)
 }
 
 plot_world_area = function(tt) {
@@ -261,7 +278,7 @@ plot_population = function(tt, tm) {
 plot_food_market = function(tt, tm) {
   barplot(
     rbind(c(tt$sold.food, tt$sold.food), c(tt$demand.food_0-tt$sold.food, tt$supply.food_max-tt$sold.food))/1000,
-    main="Food market", names.arg = c("demand", "supply"), ylab = "Quantity (tons)", ylim=c(0,150)
+    main="Food market", names.arg = c("demand", "supply"), ylab = "Quantity (tons)", ylim=c(0,160)
   )
   sold.food.change = (tt$sold.food - tm$sold.food) / tm$sold.food * 100
   plotArrow(x=0.7,y=148, sold.food.change)
@@ -314,14 +331,16 @@ plot_happiness = function(tt, tm) {
 
 # For backward compatibility, plot_state can dispatch to the above
 plot_state = function(dat, which = "world_area") {
+  layout(rbind(c(1,1,2,3),c(4,5,6,7)))
+  par(cex.lab=1.2, cex=1.2)
   tt = dat[nrow(dat),]
   tm = dat[nrow(dat)-1,]
-  if (which == "world_area") return(plot_world_area(tt))
-  if (which == "population") return(plot_population(tt, tm))
-  if (which == "food_market") return(plot_food_market(tt, tm))
-  if (which == "food_price") return(plot_food_price(tt, tm))
-  if (which == "income") return(plot_income(tt, tm))
-  if (which == "nutrition") return(plot_nutrition(tt, tm))
-  if (which == "happiness") return(plot_happiness(tt, tm))
+  plot_world_area(tt)
+  plot_population(tt, tm)
+  plot_food_market(tt, tm)
+  plot_food_price(tt, tm)
+  plot_income(tt, tm)
+  plot_nutrition(tt, tm)
+  plot_happiness(tt, tm)
 }
 
