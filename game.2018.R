@@ -47,6 +47,7 @@ K.demand_elast = 100 # Demand elasticity (higher = less sensitive to price)
 K.supply_elast = 20  # Supply elasticity (higher = less sensitive to price)
 K.rev_industry = 100000 # Revenue per industrial area (Rs)
 K.fert_effectiveness = 1/15 # Effectiveness of fertilizer (yield increase per kg)
+K.no_forest_effect = F
 
 #-------------------------------------------------------------------------------------
 # PLOTTING FUNCTION FOR SUPPLY-DEMAND CURVES
@@ -74,15 +75,27 @@ plot_supply_demand = function(supply.food_max, demand.food_0, price.food){
 process_command = function(cmd_pol, state){
   if (cmd_pol != ""){
     cmd_vec = strsplit(cmd_pol, split = " ")[[1]]
+    
+    # incorrect command format, do nothing
+    if (length(cmd_vec) < 2) return(state)
+    
     agent = cmd_vec[1]    # "P" or "F"
     command = cmd_vec[2]  # action
 
     # Politician commands
     if (agent == "P"){        
       if (command == "a"){    
+        if (length(cmd_vec) < 5) return(state)
+        
         # Area reallocation: e.g., "P a F i 20" moves 20% of total area from Forest to Industry
         from = cmd_vec[3]     # Source area type
         to = cmd_vec[4]       # Destination area type
+        
+        # Do nothing if invalid from and to specified
+        if (from == to) return (state)
+        if (!(from %in% c('F', 'f', 'c', 'i'))) return(state) 
+        if (!(to %in% c('F', 'f', 'c', 'i'))) return(state) 
+                
         amt = min(as.numeric(cmd_vec[5])/100*sum(state$world.areas), state$world.areas[from]-0.04) # Amount to move (cannot exceed available)
         state$world.areas[from] <- state$world.areas[from] - amt
         state$world.areas[to]   <- state$world.areas[to]   + amt
@@ -91,6 +104,7 @@ process_command = function(cmd_pol, state){
     }
     # Farmer commands
     else if (agent == "F"){
+      if (length(cmd_vec) < 3) return(state)
       if (command == "f"){    
         # Set farmer's own food fulfilment (fraction of requirement kept)
         state$farmer.fulfillment <- max(min(as.numeric(cmd_vec[3]), 1), 0.01)
@@ -103,7 +117,7 @@ process_command = function(cmd_pol, state){
         # Farmer migration: xx% of farmers migrate to city (negative = migrate from city to farm)
         percent_migrants = abs(as.numeric(cmd_vec[3]))
         dir_migration = sign(as.numeric(cmd_vec[3]))
-        percent_migrants = max(min(percent_migrants, 99), 1)
+        percent_migrants = max(min(percent_migrants, 99), 0)
 
         if (dir_migration > 0){
           # migration from farm
@@ -126,11 +140,18 @@ process_command = function(cmd_pol, state){
         # Plot supply-demand curves
         # plot_supply_demand()
       }
-      else if (command == "exit"){
+      else if (command == "x"){
         # End game
         stop("Game exited by user command")
       }
-      next
+      else if (command == "f"){
+        # Remove forest effect
+        K.no_forest_effect <<- T
+      }
+      else if (command == "F"){
+        # Restore forest effect
+        K.no_forest_effect <<- F
+      }
     }
     else {
       cat("Unknown command: ", command, "\n")
@@ -154,7 +175,7 @@ update_state = function(state){
   #------------------- DROUGHT DYNAMICS -------------------
   # Probability of drought is a function of forest area (less forest = higher drought risk)
   # Uses a sigmoid for smooth transition, with a sharp increase below 15% forest
-  p.drought = 0.4*sigmoid(A.forest/A.tot - 0.15, -5)  
+  p.drought = 0*0.4*sigmoid(A.forest/A.tot - 0.15, -5)  
   b.drought = rbinom(n = 1, size=1, prob=p.drought) # Simulate drought event (1 = drought, 0 = no drought)
   # TODO: introduce lagged effect of forest area on drought
 
@@ -202,6 +223,7 @@ update_state = function(state){
   inc.city = revenue.city - cost.city  
   # Health proxy: ratio of forest to industry area (more forest = healthier)
   health.city = A.forest/A.ind
+  if (K.no_forest_effect) health.city = 2 # Forest doesnt affect city health (baseline case)
   # Crowding: area per city dweller (higher = less crowded)
   crowding.city = A.city/state$N.city 
   # Satiety: fraction of food requirement met
