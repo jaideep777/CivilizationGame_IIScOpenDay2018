@@ -47,7 +47,7 @@ K.demand_elast = 100 # Demand elasticity (higher = less sensitive to price)
 K.supply_elast = 20  # Supply elasticity (higher = less sensitive to price)
 K.rev_industry = 100000 # Revenue per industrial area (Rs)
 K.fert_effectiveness = 1/15 # Effectiveness of fertilizer (yield increase per kg)
-K.no_forest_effect = F
+K.forest_effect = T
 
 #-------------------------------------------------------------------------------------
 # PLOTTING FUNCTION FOR SUPPLY-DEMAND CURVES
@@ -146,11 +146,11 @@ process_command = function(cmd_pol, state){
       }
       else if (command == "f"){
         # Remove forest effect
-        K.no_forest_effect <<- T
+        K.forest_effect <<- F
       }
       else if (command == "F"){
         # Restore forest effect
-        K.no_forest_effect <<- F
+        K.forest_effect <<- T
       }
     }
     else {
@@ -223,7 +223,7 @@ update_state = function(state){
   inc.city = revenue.city - cost.city  
   # Health proxy: ratio of forest to industry area (more forest = healthier)
   health.city = A.forest/A.ind
-  if (K.no_forest_effect) health.city = 2 # Forest doesnt affect city health (baseline case)
+  if (!K.forest_effect) health.city = 2 # Forest doesnt affect city health (baseline case), if K.forest_effect is FALSE
   # Crowding: area per city dweller (higher = less crowded)
   crowding.city = A.city/state$N.city 
   # Satiety: fraction of food requirement met

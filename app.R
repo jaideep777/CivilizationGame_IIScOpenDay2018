@@ -8,8 +8,9 @@ library(shiny)
 ui <- fluidPage(
   tags$head(
     tags$script(HTML("
-      $(document).on('keydown', function(e) {
+      $(document).on('keyup', function(e) {
         if (e.key === 'Enter' && $('#cmd_pol').is(':focus')) {
+          e.preventDefault();
           $('#submit_cmd').click();
         }
       });
@@ -31,6 +32,7 @@ Farmers' commands:
       ),
       textInput("cmd_pol", "Enter Command:", value = ""),
       actionButton("submit_cmd", "Submit Command"),
+      verbatimTextOutput("submitted_command"), # New UI element to display the submitted command
       verbatimTextOutput("turn_info"),
       width = 3
     ),
@@ -72,11 +74,13 @@ server <- function(input, output, session) {
       df[2,] <- l$dat1
       df
     },
+    forest_effect = K.forest_effect,
     turn = 2
   )
 
   observeEvent(input$submit_cmd, {
     req(input$cmd_pol)
+    vals$forest_effect <- K.forest_effect
     vals$state <- process_command(input$cmd_pol, vals$state)
     t <- vals$turn + 1
     if (t > Ts) return()
@@ -91,10 +95,16 @@ server <- function(input, output, session) {
     vals$state <- l$state
     vals$turn <- t
     updateTextInput(session, "cmd_pol", value = "")
+    
+    # Update the submitted command output
+    output$submitted_command <- renderText({
+      paste("Submitted Command:", input$cmd_pol)
+    })
   })
 
   output$turn_info <- renderPrint({
     cat("Turn:", vals$turn, "\n")
+    cat("Forest Effect Enabled:", vals$forest_effect, "\n")
     cat("Current State:\n")
     print(vals$state)
   })
