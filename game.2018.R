@@ -1,4 +1,4 @@
-require("rootSolve")
+# require("rootSolve")
 
 #-------------------------------------------------------------------------------------
 # GAME COMMANDS AND INTERFACE
@@ -193,12 +193,12 @@ update_state = function(state){
   
   #------------------- FOOD MARKET DYNAMICS -------------------
   # Market equilibrium price is found where supply equals demand
-  price.food = multiroot(
-    f=function(x){
-      supply.food_max*(1-exp(-x/K.supply_elast)) - demand.food_0*(exp(-x/K.demand_elast))
-    }, 
-    start = 0
-  )$root   
+  price.food = uniroot(
+    f = function(x) {
+      supply.food_max * (1 - exp(-x / K.supply_elast)) - demand.food_0 * (exp(-x / K.demand_elast))
+    },
+    lower = 0, upper = 1000
+  )$root
   # Amount of food actually sold at equilibrium price
   sold.food = supply.food_max*(1-exp(-price.food/K.supply_elast))  
   # Farmer revenue per capita (from food sales)
